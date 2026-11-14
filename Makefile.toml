@@ -1,0 +1,58 @@
+[env]
+PROJECT_NAME = "agent_gatekeeper"
+PROJECT_REPOSITORY = "https://github.com/czyrok/agent_gatekeeper"
+ORGANIZATION_NAME = { value = "lyre", condition = { env_not_set = ["ORGANIZATION_NAME"] } }
+LOCAL_DOCKER_REGISTRY_AS_PROXY = { value = "localhost:60471", condition = { env_not_set = ["LOCAL_DOCKER_REGISTRY_AS_PROXY"] } }
+DOCKER_IMAGE_PLATFORM = { value = "amd64", condition = { env_not_set = ["DOCKER_IMAGE_PLATFORM"] } }
+DOCKER_IMAGE_PLATFORM_LONG = { script = ["""
+    if [ "${DOCKER_IMAGE_PLATFORM}" = "arm64" ]; then
+        echo "linux/arm64"
+    elif [ "${DOCKER_IMAGE_PLATFORM}" = "amd64" ]; then
+        echo "linux/amd64"
+    else
+        echo >&2 "Unknown platform, the platform value should be 'arm64' or 'amd64'."
+        exit 1
+    fi
+    """], condition = { env_set = ["DOCKER_IMAGE_PLATFORM"] } }
+
+[tasks.local-image]
+condition = { env_set = ["DOCKER_IMAGE_PLATFORM_LONG"] }
+command = "docker"
+args = [
+  "buildx",
+  "build",
+  "--file",
+  ".devops/agent_gatekeeper.Dockerfile",
+  "--platform",
+  "${DOCKER_IMAGE_PLATFORM_LONG}",
+  "--tag",
+  "${PROJECT_NAME}:latest-${DOCKER_IMAGE_PLATFORM}",
+  "--label",
+  "org.opencontainers.image.source=${PROJECT_REPOSITORY}",
+  "--label",
+  "org.opencontainers.image.revision=${CARGO_MAKE_GIT_HEAD_LAST_COMMIT_HASH_PREFIX}",
+  "--output",
+  "type=docker",
+  ".",
+]
+
+[tasks.registry-image]
+condition = { env_set = ["DOCKER_IMAGE_PLATFORM_LONG", "ORGANIZATION_NAME", "LOCAL_DOCKER_REGISTRY_AS_PROXY"] }
+command = "docker"
+args = [
+  "buildx",
+  "build",
+  "--file",
+  ".devops/agent_gatekeeper.Dockerfile",
+  "--platform",
+  "${DOCKER_IMAGE_PLATFORM_LONG}",
+  "--tag",
+  "${LOCAL_DOCKER_REGISTRY_AS_PROXY}/${ORGANIZATION_NAME}/${PROJECT_NAME}:latest-${DOCKER_IMAGE_PLATFORM}",
+  "--label",
+  "org.opencontainers.image.source=${PROJECT_REPOSITORY}",
+  "--label",
+  "org.opencontainers.image.revision=${CARGO_MAKE_GIT_HEAD_LAST_COMMIT_HASH_PREFIX}",
+  "--output",
+  "type=registry",
+  ".",
+]

@@ -1,0 +1,11 @@
+---
+import { EgressDashboard } from "@/components/egress-dashboard"
+import Layout from "@/layouts/layout.astro"
+---
+
+<Layout>
+  <main class="mx-auto flex max-w-4xl flex-col gap-8 p-4 sm:p-8">
+    <h1 class="text-3xl">Agent gatekeeper</h1>
+    <EgressDashboard client:load />
+  </main>
+</Layout>
