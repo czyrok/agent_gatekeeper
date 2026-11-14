@@ -33,6 +33,14 @@ export async function listPods(namespace: string, labelSelector: string): Promis
   return pods.items.map((pod) => pod.metadata.name)
 }
 
+export async function findPodLabelsByIp(namespace: string, ip: string): Promise<Record<string, string> | undefined> {
+  const response = await request(
+    `/api/v1/namespaces/${namespace}/pods?fieldSelector=${encodeURIComponent(`status.podIP=${ip},status.phase=Running`)}`,
+  )
+  const pods: { items: { metadata: { labels?: Record<string, string> } }[] } = await response.json()
+  return pods.items[0]?.metadata.labels
+}
+
 export async function readPodLog(namespace: string, pod: string, sinceSeconds: number): Promise<string> {
   const response = await request(`/api/v1/namespaces/${namespace}/pods/${pod}/log?sinceSeconds=${sinceSeconds}`)
   return response.text()
