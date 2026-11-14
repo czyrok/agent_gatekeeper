@@ -39,6 +39,54 @@ variable "allowlist_key" {
   description = "Data key of the allowlist in that ConfigMap"
 }
 
+variable "workspaces_namespace_name" {
+  type        = string
+  description = "Namespace of the agent workspaces, whose pods may call the requests port"
+}
+
+variable "requests_service_name" {
+  type        = string
+  description = "Name of the Service exposing the MCP endpoint to workspaces"
+}
+
+variable "proxy_url" {
+  type        = string
+  description = "URL of the egress proxy, probed to confirm an approved host gets through"
+}
+
+variable "public_url" {
+  type        = string
+  description = "URL the operator opens the page on, used in notification links"
+}
+
+variable "ntfy_url" {
+  type        = string
+  description = "URL of the ntfy server notifications are published to"
+}
+
+variable "ntfy_topic" {
+  type        = string
+  description = "ntfy topic of the egress requests"
+}
+
+variable "ntfy_token" {
+  type        = string
+  sensitive   = true
+  description = "ntfy access token allowed to publish on that topic"
+}
+
+variable "notification_email" {
+  type        = string
+  default     = ""
+  description = "Address ntfy also emails each notification to. Empty sends no email"
+}
+
+variable "storage_size" {
+  type        = string
+  default     = "256Mi"
+  description = "Size of the volume holding the requests database"
+}
+
 variable "wait_for" {
   type        = list(string)
   default     = []
