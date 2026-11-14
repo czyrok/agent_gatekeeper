@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useState, type SubmitEvent } from "react"
+import { useCallback, useEffect, useRef, useState, type SubmitEvent } from "react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import type { EgressRequest } from "@/lib/egress-requests"
 import type { BlockedHost } from "@/lib/tinyproxy-log"
 
 const REFRESH_MILLISECONDS = 15_000
+const LISTED_REQUEST_STATUSES: EgressRequest["status"][] = ["pending", "approved", "stalled"]
 
 const relativeTime = new Intl.RelativeTimeFormat("en", { numeric: "auto" })
 
@@ -25,7 +27,48 @@ async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
   return body
 }
 
+function RequestActions({
+  request,
+  pending,
+  onDecide,
+  fullWidth = false,
+}: {
+  request: EgressRequest
+  pending: string | null
+  onDecide: (id: string, decision: "allow" | "deny") => void
+  fullWidth?: boolean
+}) {
+  if (request.status === "approved") return <Badge>waiting for proxy</Badge>
+  if (request.status === "stalled") return <Badge variant="neutral">proxy did not reload</Badge>
+  return (
+    <div className={fullWidth ? "flex gap-2" : "flex justify-end gap-2"}>
+      <Button
+        className={fullWidth ? "flex-1" : undefined}
+        size={fullWidth ? "default" : "sm"}
+        disabled={pending === request.id}
+        onClick={() => onDecide(request.id, "allow")}
+      >
+        Allow
+      </Button>
+      <Button
+        className={fullWidth ? "flex-1" : undefined}
+        size={fullWidth ? "default" : "sm"}
+        variant="neutral"
+        disabled={pending === request.id}
+        onClick={() => onDecide(request.id, "deny")}
+      >
+        Deny
+      </Button>
+    </div>
+  )
+}
+
 export function EgressDashboard() {
+  const [requests, setRequests] = useState<EgressRequest[]>([])
+  const [focusedRequest] = useState(() =>
+    typeof location === "undefined" ? null : new URLSearchParams(location.search).get("request"),
+  )
+  const scrolledToFocus = useRef(false)
   const [blocked, setBlocked] = useState<BlockedHost[]>([])
   const [allowlist, setAllowlist] = useState<string[]>([])
   const [pending, setPending] = useState<string | null>(null)
@@ -34,10 +77,12 @@ export function EgressDashboard() {
 
   const refresh = useCallback(async () => {
     try {
-      const [nextBlocked, nextAllowlist] = await Promise.all([
+      const [nextRequests, nextBlocked, nextAllowlist] = await Promise.all([
+        getJson<EgressRequest[]>("/api/requests"),
         getJson<BlockedHost[]>("/api/blocked"),
         getJson<string[]>("/api/allowlist"),
       ])
+      setRequests(nextRequests)
       setBlocked(nextBlocked)
       setAllowlist(nextAllowlist)
       setError(null)
@@ -51,6 +96,35 @@ export function EgressDashboard() {
     const interval = setInterval(refresh, REFRESH_MILLISECONDS)
     return () => clearInterval(interval)
   }, [refresh])
+
+  useEffect(() => {
+    if (scrolledToFocus.current || !focusedRequest || requests.length === 0) return
+    scrolledToFocus.current = true
+    const visible = [...document.querySelectorAll<HTMLElement>(`[data-request="${CSS.escape(focusedRequest)}"]`)].find(
+      (element) => element.offsetParent !== null,
+    )
+    visible?.scrollIntoView({ block: "center" })
+  }, [focusedRequest, requests])
+
+  async function decide(id: string, decision: "allow" | "deny") {
+    setPending(id)
+    try {
+      await getJson<EgressRequest>("/api/requests/decision", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, decision }),
+      })
+      setError(null)
+      await refresh()
+    } catch (failure) {
+      setError((failure as Error).message)
+    } finally {
+      setPending(null)
+    }
+  }
+
+  const listedRequests = requests.filter((request) => LISTED_REQUEST_STATUSES.includes(request.status))
+  const focusClass = (id: string) => (id === focusedRequest ? "ring-4 ring-main" : "")
 
   async function allow(host: string) {
     setPending(host)
@@ -84,6 +158,65 @@ export function EgressDashboard() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Agent requests</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {listedRequests.length === 0 ? (
+            <Alert>
+              <AlertTitle>No pending requests</AlertTitle>
+            </Alert>
+          ) : (
+            <>
+              <ul className="flex flex-col gap-4 sm:hidden">
+                {listedRequests.map((request) => (
+                  <li
+                    key={request.id}
+                    data-request={request.id}
+                    className={`flex flex-col gap-3 rounded-base border-2 border-border bg-secondary-background p-4 ${focusClass(request.id)}`}
+                  >
+                    <span className="font-mono break-all">{request.host}</span>
+                    <span className="text-sm">{request.reason}</span>
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <span className="font-mono break-all">{request.workspace}</span>
+                      <span>{timeAgo(request.createdAt)}</span>
+                    </div>
+                    <RequestActions request={request} pending={pending} onDecide={decide} fullWidth />
+                  </li>
+                ))}
+              </ul>
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Host</TableHead>
+                      <TableHead>Workspace</TableHead>
+                      <TableHead>Reason</TableHead>
+                      <TableHead>Asked</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {listedRequests.map((request) => (
+                      <TableRow key={request.id} data-request={request.id} className={focusClass(request.id)}>
+                        <TableCell className="font-mono">{request.host}</TableCell>
+                        <TableCell className="font-mono">{request.workspace}</TableCell>
+                        <TableCell className="whitespace-normal">{request.reason}</TableCell>
+                        <TableCell>{timeAgo(request.createdAt)}</TableCell>
+                        <TableCell className="text-right">
+                          <RequestActions request={request} pending={pending} onDecide={decide} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
