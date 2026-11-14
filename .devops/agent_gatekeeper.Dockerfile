@@ -21,11 +21,13 @@ WORKDIR /app
 
 COPY --from=production_dependencies /project/node_modules ./node_modules
 COPY --from=builder /project/dist ./dist
+COPY server.mjs ./
 
 ENV HOST=0.0.0.0
 ENV PORT=4321
+ENV REQUESTS_PORT=4322
 ENV NODE_ENV=production
 
-EXPOSE 4321
+EXPOSE 4321 4322
 USER node
-CMD ["node", "./dist/server/entry.mjs"]
+CMD ["node", "./server.mjs"]
