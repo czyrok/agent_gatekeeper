@@ -82,7 +82,9 @@ Deployment pulls that tag with `Always`, so a new image only lands on restart.
 
 The Terraform module in `.terraform-module/` sets all of them. Its
 ServiceAccount's Role on pods, pod logs and the allowlist lives in
-`proxy_namespace_name`, not in the gatekeeper's own namespace.
+`proxy_namespace_name`, not in the gatekeeper's own namespace. A NetworkPolicy
+admits only the ingress controller pods (`ingress_namespace_name`,
+`ingress_pod_labels`) on 4321 and only workspace pods on 4322.
 
 ## Theme
 

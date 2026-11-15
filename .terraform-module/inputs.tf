@@ -23,6 +23,16 @@ variable "internal_ingress_class_name" {
   description = "Ingress class of the internal Traefik"
 }
 
+variable "ingress_namespace_name" {
+  type        = string
+  description = "Namespace of the ingress controller allowed to reach the page"
+}
+
+variable "ingress_pod_labels" {
+  type        = map(string)
+  description = "Labels of the ingress controller pods allowed to reach the page"
+}
+
 variable "proxy_namespace_name" {
   type        = string
   description = "Namespace of the egress proxy and its allowlist ConfigMap; the gatekeeper's Role lives there"
