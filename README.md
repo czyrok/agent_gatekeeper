@@ -31,8 +31,8 @@ Requests live in SQLite at `DATABASE_PATH` and survive a restart.
 
 ## Develop
 
-`nix develop .#agent` gives `bun` and `node`; Coder agent workspaces load this
-shell on start.
+`nix develop` gives `bun` and `node`; Coder agent workspaces load the same
+shell, as `.#agent`, on start.
 
 ```bash
 bun install

@@ -14,11 +14,14 @@
       devShells = for_each_supported_system (system:
         let
           pkgs = import nixpkgs { inherit system; };
-        in
-        {
-          agent = pkgs.mkShellNoCC {
+
+          default_shell = pkgs.mkShellNoCC {
             packages = [ pkgs.bun pkgs.nodejs ];
           };
+        in
+        {
+          default = default_shell;
+          agent = self.devShells.${system}.default;
         });
     };
 }
