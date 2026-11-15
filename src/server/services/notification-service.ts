@@ -1,5 +1,5 @@
-import type { EgressRequest } from "@/lib/egress-requests"
-import { env } from "@/lib/env"
+import type { EgressRequest } from "@/server/services/egress-request-lifecycle-service"
+import { env } from "@/server/infrastructure/env"
 
 type Message = {
   title: string

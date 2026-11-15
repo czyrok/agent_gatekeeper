@@ -1,5 +1,5 @@
 import { connect } from "node:net"
-import { env } from "@/lib/env"
+import { env } from "@/server/infrastructure/env"
 
 const PROBE_TIMEOUT_MILLISECONDS = 10_000
 

@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro"
-import { listRequests } from "@/lib/egress-requests"
+import { listRequests } from "@/server/services/egress-request-lifecycle-service"
 
 export const GET: APIRoute = () => {
   try {

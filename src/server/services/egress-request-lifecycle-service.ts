@@ -1,8 +1,8 @@
-import { isAllowed } from "@/lib/allowlist"
+import { isAllowed } from "@/server/services/allowlist-service"
 import { allowHost, readEntries } from "@/lib/allowlist-config-map"
-import { database } from "@/lib/database"
-import { notifyRequest, notifyStalled } from "@/lib/ntfy"
-import { isFilteredByProxy } from "@/lib/proxy-probe"
+import { database } from "@/server/infrastructure/database"
+import { notifyRequest, notifyStalled } from "@/server/services/notification-service"
+import { isFilteredByProxy } from "@/server/services/proxy-probe-service"
 
 export type EgressRequestStatus = "pending" | "approved" | "allowed" | "stalled" | "denied" | "expired"
 

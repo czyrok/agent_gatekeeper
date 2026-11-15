@@ -1,8 +1,8 @@
 import type { APIRoute } from "astro"
-import { isValidHost } from "@/lib/allowlist"
+import { isValidHost } from "@/server/services/allowlist-service"
 import { allowHost, readEntries } from "@/lib/allowlist-config-map"
-import { markHostAllowed } from "@/lib/egress-requests"
-import { ConflictError } from "@/lib/kubernetes"
+import { markHostAllowed } from "@/server/services/egress-request-lifecycle-service"
+import { ConflictError } from "@/server/infrastructure/kubernetes"
 
 export const GET: APIRoute = async () => {
   try {

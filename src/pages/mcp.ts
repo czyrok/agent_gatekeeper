@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro"
-import { env } from "@/lib/env"
-import { findPodLabelsByIp } from "@/lib/kubernetes"
-import { callTool, TOOLS } from "@/lib/mcp-tools"
+import { env } from "@/server/infrastructure/env"
+import { findPodLabelsByIp } from "@/server/infrastructure/kubernetes"
+import { callTool, TOOLS } from "@/server/mcp/mcp-tools"
 
 type JsonRpcId = string | number | null
 

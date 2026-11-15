@@ -1,5 +1,5 @@
-import { isValidHost } from "@/lib/allowlist"
-import { findRequest, submitRequest, waitForChange, type EgressRequest } from "@/lib/egress-requests"
+import { isValidHost } from "@/server/services/allowlist-service"
+import { findRequest, submitRequest, waitForChange, type EgressRequest } from "@/server/services/egress-request-lifecycle-service"
 
 const WAIT_MILLISECONDS = 25_000
 

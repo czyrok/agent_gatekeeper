@@ -1,8 +1,8 @@
 import type { APIRoute } from "astro"
-import { isAllowed, parseAllowlist } from "@/lib/allowlist"
-import { env } from "@/lib/env"
-import { listPods, readConfigMap, readPodLog } from "@/lib/kubernetes"
-import { parseRefusedHosts } from "@/lib/tinyproxy-log"
+import { isAllowed, parseAllowlist } from "@/server/services/allowlist-service"
+import { env } from "@/server/infrastructure/env"
+import { listPods, readConfigMap, readPodLog } from "@/server/infrastructure/kubernetes"
+import { parseRefusedHosts } from "@/server/services/tinyproxy-log-service"
 
 const LOG_WINDOW_SECONDS = 86400
 

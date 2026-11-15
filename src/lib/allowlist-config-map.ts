@@ -1,6 +1,6 @@
-import { entryForHost, isAllowed, parseAllowlist } from "@/lib/allowlist"
-import { env } from "@/lib/env"
-import { ConflictError, readConfigMap, replaceConfigMap } from "@/lib/kubernetes"
+import { entryForHost, isAllowed, parseAllowlist } from "@/server/services/allowlist-service"
+import { env } from "@/server/infrastructure/env"
+import { ConflictError, readConfigMap, replaceConfigMap } from "@/server/infrastructure/kubernetes"
 
 export async function readEntries(): Promise<string[]> {
   const configMap = await readConfigMap(env("PROXY_NAMESPACE"), env("ALLOWLIST_CONFIG_MAP"))

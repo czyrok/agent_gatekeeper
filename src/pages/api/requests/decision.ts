@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro"
-import { decide } from "@/lib/egress-requests"
+import { decide } from "@/server/services/egress-request-lifecycle-service"
 
 const DECISIONS = ["allow", "deny", "retry"] as const
 
