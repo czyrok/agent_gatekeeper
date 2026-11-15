@@ -1,7 +1,6 @@
 import type { APIRoute } from "astro"
-import { env } from "@/server/infrastructure/env"
-import { findPodLabelsByIp } from "@/server/infrastructure/kubernetes"
 import { callTool, TOOLS } from "@/server/mcp/mcp-tools"
+import { identifyWorkspace } from "@/server/use-cases/identify-workspace"
 
 type JsonRpcId = string | number | null
 
@@ -43,12 +42,11 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     return Response.json({ error: "MCP is served to workspaces only" }, { status: 403 })
   }
   const ip = clientAddress.replace(/^::ffff:/, "")
-  const labels = await findPodLabelsByIp(env("WORKSPACES_NAMESPACE"), ip).catch(() => undefined)
-  if (!labels?.["coder.workspace_name"]) {
+  const workspace = await identifyWorkspace(ip)
+  if (!workspace) {
     console.warn(`mcp: no workspace pod has IP ${ip}`)
     return Response.json({ error: "Not a workspace", ip }, { status: 403 })
   }
-  const workspace = `${labels["coder.workspace_owner"]}/${labels["coder.workspace_name"]}`
 
   let message: JsonRpcMessage
   try {

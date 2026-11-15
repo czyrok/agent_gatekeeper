@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import type { EgressRequest } from "@/server/services/egress-request-lifecycle-service"
-import type { BlockedHost } from "@/server/services/tinyproxy-log-service"
+import type { EgressRequest } from "@/shared/egress-request"
+import type { BlockedHost } from "@/shared/blocked-host"
 
 const REFRESH_MILLISECONDS = 15_000
 const LISTED_REQUEST_STATUSES: EgressRequest["status"][] = ["pending", "approved", "stalled", "denied", "expired"]

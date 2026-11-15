@@ -1,5 +1,7 @@
 import { isValidHost } from "@/server/services/allowlist-service"
-import { findRequest, submitRequest, waitForChange, type EgressRequest } from "@/server/services/egress-request-lifecycle-service"
+import { awaitEgressStatus } from "@/server/use-cases/await-egress-status"
+import { submitEgressRequest } from "@/server/use-cases/submit-egress-request"
+import type { EgressRequest } from "@/shared/egress-request"
 
 const WAIT_MILLISECONDS = 25_000
 
@@ -61,9 +63,9 @@ export async function callTool(
   let request: EgressRequest | undefined
   if (name === "request_egress") {
     const reason = typeof args.reason === "string" ? args.reason.trim() : ""
-    request = await submitRequest(workspace, host, reason)
+    request = await submitEgressRequest(workspace, host, reason, WAIT_MILLISECONDS)
   } else {
-    request = findRequest(workspace, host)
+    request = await awaitEgressStatus(workspace, host, WAIT_MILLISECONDS)
     if (!request) {
       return {
         text: `Unknown: no request for ${host} in this workspace (the gatekeeper may have restarted). Call request_egress again.`,
@@ -72,6 +74,5 @@ export async function callTool(
     }
   }
 
-  const latest = (await waitForChange(request.id, WAIT_MILLISECONDS)) ?? request
-  return { text: statusText(latest), isError: false }
+  return { text: statusText(request), isError: false }
 }

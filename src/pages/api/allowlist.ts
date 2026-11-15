@@ -1,12 +1,12 @@
 import type { APIRoute } from "astro"
-import { isValidHost } from "@/server/services/allowlist-service"
-import { allowHost, readEntries } from "@/lib/allowlist-config-map"
-import { markHostAllowed } from "@/server/services/egress-request-lifecycle-service"
 import { ConflictError } from "@/server/infrastructure/kubernetes"
+import { isValidHost } from "@/server/services/allowlist-service"
+import { allowHost } from "@/server/use-cases/allow-host"
+import { listAllowlist } from "@/server/use-cases/list-allowlist"
 
 export const GET: APIRoute = async () => {
   try {
-    return Response.json(await readEntries())
+    return Response.json(await listAllowlist())
   } catch (error) {
     return Response.json({ error: (error as Error).message }, { status: 502 })
   }
@@ -18,9 +18,7 @@ export const POST: APIRoute = async ({ request }) => {
   if (!isValidHost(host)) return Response.json({ error: `Not a host name: ${host}` }, { status: 400 })
 
   try {
-    const entries = await allowHost(host)
-    markHostAllowed(host)
-    return Response.json(entries)
+    return Response.json(await allowHost(host))
   } catch (error) {
     const status = error instanceof ConflictError ? 409 : 502
     return Response.json({ error: (error as Error).message }, { status })

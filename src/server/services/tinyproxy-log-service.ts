@@ -1,4 +1,4 @@
-export type BlockedHost = { host: string; count: number; lastSeen: string }
+import type { BlockedHost } from "@/shared/blocked-host"
 
 const REFUSED = /^NOTICE\s+(\w{3} \d{2} \d{2}:\d{2}:\d{2}\.\d{3}) \[\d+\]: Proxying refused on filtered domain "([^"]+)"$/
 

@@ -1,30 +1,27 @@
 import type { APIRoute } from "astro"
-import { decide } from "@/server/services/egress-request-lifecycle-service"
+import {
+  decideEgressRequest,
+  EgressRequestAlreadyDecidedError,
+  UnknownEgressRequestError,
+} from "@/server/use-cases/decide-egress-request"
+import { EGRESS_DECISIONS } from "@/shared/egress-request"
 
-const DECISIONS = ["allow", "deny", "retry"] as const
-
-function statusFor(message: string): number {
-  switch (message) {
-    case "unknown request":
-      return 404
-    case "already decided":
-      return 409
-    default:
-      return 502
-  }
+function statusFor(error: unknown): number {
+  if (error instanceof UnknownEgressRequestError) return 404
+  if (error instanceof EgressRequestAlreadyDecidedError) return 409
+  return 502
 }
 
 export const POST: APIRoute = async ({ request }) => {
   const body = await request.json().catch(() => ({}))
-  const decision = DECISIONS.find((candidate) => candidate === body.decision)
+  const decision = EGRESS_DECISIONS.find((candidate) => candidate === body.decision)
   if (typeof body.id !== "string" || !decision) {
     return Response.json({ error: "Expected { id, decision: allow | deny | retry }" }, { status: 400 })
   }
 
   try {
-    return Response.json(await decide(body.id, decision))
+    return Response.json(await decideEgressRequest(body.id, decision))
   } catch (error) {
-    const message = (error as Error).message
-    return Response.json({ error: message }, { status: statusFor(message) })
+    return Response.json({ error: (error as Error).message }, { status: statusFor(error) })
   }
 }

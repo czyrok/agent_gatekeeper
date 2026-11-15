@@ -1,4 +1,4 @@
-import type { EgressRequest } from "@/server/services/egress-request-lifecycle-service"
+import type { EgressRequest } from "@/shared/egress-request"
 import { env } from "@/server/infrastructure/env"
 
 type Message = {

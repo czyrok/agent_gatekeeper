@@ -1,3 +1,6 @@
+import { ConflictError } from "@/server/infrastructure/kubernetes"
+import * as allowlistRepository from "@/server/repositories/allowlist-repository"
+
 const HOST = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i
 
 export function parseAllowlist(text: string): string[] {
@@ -41,4 +44,26 @@ export function isAllowed(entries: string[], host: string): boolean {
       return false
     }
   })
+}
+
+export async function readEntries(): Promise<string[]> {
+  return parseAllowlist((await allowlistRepository.read()).text)
+}
+
+async function appendHost(host: string): Promise<string[]> {
+  const document = await allowlistRepository.read()
+  const entries = parseAllowlist(document.text)
+  if (isAllowed(entries, host)) return entries
+
+  const separator = document.text === "" || document.text.endsWith("\n") ? "" : "\n"
+  return parseAllowlist(await allowlistRepository.replace(document, `${document.text}${separator}${entryForHost(host)}\n`))
+}
+
+export async function allowHost(host: string): Promise<string[]> {
+  try {
+    return await appendHost(host)
+  } catch (error) {
+    if (!(error instanceof ConflictError)) throw error
+    return appendHost(host)
+  }
 }
