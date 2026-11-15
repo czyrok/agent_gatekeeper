@@ -40,7 +40,7 @@ bun install
 DATABASE_PATH=./gatekeeper.db bun run dev
 ```
 
-`DATABASE_PATH` must be set, or the allowlist and request endpoints fail.
+`DATABASE_PATH` defaults to `gatekeeper.db` in the working directory.
 `bun run start` runs `server.mjs`: the app on `PORT`, only `/mcp` on
 `REQUESTS_PORT`.
 

@@ -1,7 +1,6 @@
 import { DatabaseSync } from "node:sqlite"
-import { env } from "@/lib/env"
 
-export const database = new DatabaseSync(env("DATABASE_PATH"))
+export const database = new DatabaseSync(process.env.DATABASE_PATH ?? "gatekeeper.db")
 
 database.exec(`
   PRAGMA journal_mode = WAL;

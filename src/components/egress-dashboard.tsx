@@ -76,19 +76,19 @@ export function EgressDashboard() {
   const [error, setError] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
-    try {
-      const [nextRequests, nextBlocked, nextAllowlist] = await Promise.all([
-        getJson<EgressRequest[]>("/api/requests"),
-        getJson<BlockedHost[]>("/api/blocked"),
-        getJson<string[]>("/api/allowlist"),
-      ])
-      setRequests(nextRequests)
-      setBlocked(nextBlocked)
-      setAllowlist(nextAllowlist)
-      setError(null)
-    } catch (failure) {
-      setError((failure as Error).message)
-    }
+    const [nextRequests, nextBlocked, nextAllowlist] = await Promise.allSettled([
+      getJson<EgressRequest[]>("/api/requests"),
+      getJson<BlockedHost[]>("/api/blocked"),
+      getJson<string[]>("/api/allowlist"),
+    ])
+    const failures: string[] = []
+    if (nextRequests.status === "fulfilled") setRequests(nextRequests.value)
+    else failures.push(`requests: ${(nextRequests.reason as Error).message}`)
+    if (nextBlocked.status === "fulfilled") setBlocked(nextBlocked.value)
+    else failures.push(`refused hosts: ${(nextBlocked.reason as Error).message}`)
+    if (nextAllowlist.status === "fulfilled") setAllowlist(nextAllowlist.value)
+    else failures.push(`allowlist: ${(nextAllowlist.reason as Error).message}`)
+    setError(failures.length > 0 ? failures.join("; ") : null)
   }, [])
 
   useEffect(() => {
