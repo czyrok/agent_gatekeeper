@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useRef, useState, type SubmitEvent } from "react"
+import { useEffect, useRef, useState, type SubmitEvent } from "react"
+import { allowHost, decideEgressRequest, startDashboardPolling } from "@/client/data-services/egress-dashboard-data-service"
+import {
+  selectAllowlist,
+  selectBlockedHosts,
+  selectError,
+  selectListedRequests,
+  selectPending,
+  selectRequests,
+} from "@/client/selectors/dashboard-selectors"
+import { useDashboardState } from "@/client/state/dashboard-state"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -6,10 +16,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import type { EgressRequest } from "@/shared/egress-request"
-import type { BlockedHost } from "@/shared/blocked-host"
-
-const REFRESH_MILLISECONDS = 15_000
-const LISTED_REQUEST_STATUSES: EgressRequest["status"][] = ["pending", "approved", "stalled", "denied", "expired"]
 
 const relativeTime = new Intl.RelativeTimeFormat("en", { numeric: "auto" })
 
@@ -20,24 +26,8 @@ function timeAgo(iso: string): string {
   return relativeTime.format(Math.round(seconds / 3600), "hour")
 }
 
-async function getJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init)
-  const body = await response.json()
-  if (!response.ok) throw new Error(body.error ?? `${response.status}`)
-  return body
-}
-
-function RequestActions({
-  request,
-  pending,
-  onDecide,
-  fullWidth = false,
-}: {
-  request: EgressRequest
-  pending: string | null
-  onDecide: (id: string, decision: "allow" | "deny" | "retry") => void
-  fullWidth?: boolean
-}) {
+function RequestActions({ request, fullWidth = false }: { request: EgressRequest; fullWidth?: boolean }) {
+  const pending = useDashboardState(selectPending)
   if (request.status === "approved") return <Badge>waiting for proxy</Badge>
   if (request.status === "expired") return <Badge variant="neutral">expired</Badge>
   if (request.status === "stalled" || request.status === "denied") {
@@ -52,7 +42,7 @@ function RequestActions({
           className={fullWidth ? "flex-1" : undefined}
           size={fullWidth ? "default" : "sm"}
           disabled={pending === request.id}
-          onClick={() => onDecide(request.id, decision)}
+          onClick={() => decideEgressRequest(request.id, decision)}
         >
           {action}
         </Button>
@@ -65,7 +55,7 @@ function RequestActions({
         className={fullWidth ? "flex-1" : undefined}
         size={fullWidth ? "default" : "sm"}
         disabled={pending === request.id}
-        onClick={() => onDecide(request.id, "allow")}
+        onClick={() => decideEgressRequest(request.id, "allow")}
       >
         Allow
       </Button>
@@ -74,7 +64,7 @@ function RequestActions({
         size={fullWidth ? "default" : "sm"}
         variant="neutral"
         disabled={pending === request.id}
-        onClick={() => onDecide(request.id, "deny")}
+        onClick={() => decideEgressRequest(request.id, "deny")}
       >
         Deny
       </Button>
@@ -83,38 +73,19 @@ function RequestActions({
 }
 
 export function EgressDashboard() {
-  const [requests, setRequests] = useState<EgressRequest[]>([])
+  const requests = useDashboardState(selectRequests)
+  const listedRequests = useDashboardState(selectListedRequests)
+  const blocked = useDashboardState(selectBlockedHosts)
+  const allowlist = useDashboardState(selectAllowlist)
+  const pending = useDashboardState(selectPending)
+  const error = useDashboardState(selectError)
   const [focusedRequest] = useState(() =>
     typeof location === "undefined" ? null : new URLSearchParams(location.search).get("request"),
   )
   const scrolledToFocus = useRef(false)
-  const [blocked, setBlocked] = useState<BlockedHost[]>([])
-  const [allowlist, setAllowlist] = useState<string[]>([])
-  const [pending, setPending] = useState<string | null>(null)
   const [manualHost, setManualHost] = useState("")
-  const [error, setError] = useState<string | null>(null)
 
-  const refresh = useCallback(async () => {
-    const [nextRequests, nextBlocked, nextAllowlist] = await Promise.allSettled([
-      getJson<EgressRequest[]>("/api/requests"),
-      getJson<BlockedHost[]>("/api/blocked"),
-      getJson<string[]>("/api/allowlist"),
-    ])
-    const failures: string[] = []
-    if (nextRequests.status === "fulfilled") setRequests(nextRequests.value)
-    else failures.push(`requests: ${(nextRequests.reason as Error).message}`)
-    if (nextBlocked.status === "fulfilled") setBlocked(nextBlocked.value)
-    else failures.push(`refused hosts: ${(nextBlocked.reason as Error).message}`)
-    if (nextAllowlist.status === "fulfilled") setAllowlist(nextAllowlist.value)
-    else failures.push(`allowlist: ${(nextAllowlist.reason as Error).message}`)
-    setError(failures.length > 0 ? failures.join("; ") : null)
-  }, [])
-
-  useEffect(() => {
-    refresh()
-    const interval = setInterval(refresh, REFRESH_MILLISECONDS)
-    return () => clearInterval(interval)
-  }, [refresh])
+  useEffect(() => startDashboardPolling(), [])
 
   useEffect(() => {
     if (scrolledToFocus.current || !focusedRequest || requests.length === 0) return
@@ -125,48 +96,11 @@ export function EgressDashboard() {
     visible?.scrollIntoView({ block: "center" })
   }, [focusedRequest, requests])
 
-  async function decide(id: string, decision: "allow" | "deny" | "retry") {
-    setPending(id)
-    try {
-      await getJson<EgressRequest>("/api/requests/decision", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, decision }),
-      })
-      setError(null)
-      await refresh()
-    } catch (failure) {
-      setError((failure as Error).message)
-    } finally {
-      setPending(null)
-    }
-  }
-
-  const listedRequests = requests.filter((request) => LISTED_REQUEST_STATUSES.includes(request.status))
   const focusClass = (id: string) => (id === focusedRequest ? "ring-4 ring-main" : "")
-
-  async function allow(host: string) {
-    setPending(host)
-    try {
-      await getJson<string[]>("/api/allowlist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ host }),
-      })
-      setError(null)
-      await refresh()
-      return true
-    } catch (failure) {
-      setError((failure as Error).message)
-      return false
-    } finally {
-      setPending(null)
-    }
-  }
 
   async function allowManualHost(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (await allow(manualHost)) setManualHost("")
+    if (await allowHost(manualHost)) setManualHost("")
   }
 
   return (
@@ -202,7 +136,7 @@ export function EgressDashboard() {
                       <span className="font-mono break-all">{request.workspace}</span>
                       <span>{timeAgo(request.createdAt)}</span>
                     </div>
-                    <RequestActions request={request} pending={pending} onDecide={decide} fullWidth />
+                    <RequestActions request={request} fullWidth />
                   </li>
                 ))}
               </ul>
@@ -225,7 +159,7 @@ export function EgressDashboard() {
                         <TableCell className="whitespace-normal">{request.reason}</TableCell>
                         <TableCell>{timeAgo(request.createdAt)}</TableCell>
                         <TableCell className="text-right">
-                          <RequestActions request={request} pending={pending} onDecide={decide} />
+                          <RequestActions request={request} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -259,7 +193,7 @@ export function EgressDashboard() {
                       <Badge>{count}</Badge>
                       <span>{timeAgo(lastSeen)}</span>
                     </div>
-                    <Button className="w-full" disabled={pending === host} onClick={() => allow(host)}>
+                    <Button className="w-full" disabled={pending === host} onClick={() => allowHost(host)}>
                       Allow
                     </Button>
                   </li>
@@ -284,7 +218,7 @@ export function EgressDashboard() {
                         </TableCell>
                         <TableCell>{timeAgo(lastSeen)}</TableCell>
                         <TableCell className="text-right">
-                          <Button size="sm" disabled={pending === host} onClick={() => allow(host)}>
+                          <Button size="sm" disabled={pending === host} onClick={() => allowHost(host)}>
                             Allow
                           </Button>
                         </TableCell>
