@@ -39,9 +39,15 @@ async function resultFor(message: JsonRpcMessage, workspace: string): Promise<un
 export const GET: APIRoute = () => new Response(null, { status: 405, headers: { Allow: "POST" } })
 
 export const POST: APIRoute = async ({ request, clientAddress }) => {
+  if (request.headers.has("x-forwarded-for")) {
+    return Response.json({ error: "MCP is served to workspaces only" }, { status: 403 })
+  }
   const ip = clientAddress.replace(/^::ffff:/, "")
   const labels = await findPodLabelsByIp(env("WORKSPACES_NAMESPACE"), ip).catch(() => undefined)
-  if (!labels?.["coder.workspace_name"]) return Response.json({ error: "Not a workspace" }, { status: 403 })
+  if (!labels?.["coder.workspace_name"]) {
+    console.warn(`mcp: no workspace pod has IP ${ip}`)
+    return Response.json({ error: "Not a workspace", ip }, { status: 403 })
+  }
   const workspace = `${labels["coder.workspace_owner"]}/${labels["coder.workspace_name"]}`
 
   let message: JsonRpcMessage

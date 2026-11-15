@@ -25,7 +25,8 @@ for that workspace for an hour.
 
 The caller is the running pod whose IP is the TCP peer, read in
 `WORKSPACES_NAMESPACE`; its `coder.workspace_owner` and `coder.workspace_name`
-labels name the workspace. Any other caller gets `403`.
+labels name the workspace. Any other caller gets `403` with the address the
+gatekeeper saw, also logged; so does any request carrying `X-Forwarded-For`.
 
 Requests live in SQLite at `DATABASE_PATH` and survive a restart.
 
