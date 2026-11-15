@@ -31,6 +31,9 @@ Requests live in SQLite at `DATABASE_PATH` and survive a restart.
 
 ## Develop
 
+`nix develop .#agent` gives `bun` and `node`; Coder agent workspaces load this
+shell on start.
+
 ```bash
 bun install
 DATABASE_PATH=./gatekeeper.db bun run dev
