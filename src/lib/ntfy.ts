@@ -13,6 +13,7 @@ async function publish(message: Message): Promise<void> {
   const email = process.env.NOTIFICATION_EMAIL
   const response = await fetch(env("NTFY_URL"), {
     method: "POST",
+    signal: AbortSignal.timeout(10_000),
     headers: { Authorization: `Bearer ${env("NTFY_TOKEN")}`, "Content-Type": "application/json" },
     body: JSON.stringify({ topic: env("NTFY_TOPIC"), ...message, ...(email ? { email } : {}) }),
   })

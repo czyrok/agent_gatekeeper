@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro"
 import { decide } from "@/lib/egress-requests"
 
-const DECISIONS = ["allow", "deny"] as const
+const DECISIONS = ["allow", "deny", "retry"] as const
 
 function statusFor(message: string): number {
   switch (message) {
@@ -18,7 +18,7 @@ export const POST: APIRoute = async ({ request }) => {
   const body = await request.json().catch(() => ({}))
   const decision = DECISIONS.find((candidate) => candidate === body.decision)
   if (typeof body.id !== "string" || !decision) {
-    return Response.json({ error: "Expected { id, decision: allow | deny }" }, { status: 400 })
+    return Response.json({ error: "Expected { id, decision: allow | deny | retry }" }, { status: 400 })
   }
 
   try {

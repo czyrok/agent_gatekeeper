@@ -44,9 +44,7 @@ const statements = {
   selectApprovedHosts: database.prepare("SELECT DISTINCT host FROM egress_requests WHERE status = 'approved'"),
   selectAll: database.prepare("SELECT * FROM egress_requests ORDER BY created_at DESC"),
   updateStatus: database.prepare("UPDATE egress_requests SET status = ?, decided_at = ? WHERE id = ?"),
-  expirePending: database.prepare(
-    "UPDATE egress_requests SET status = 'expired', decided_at = ? WHERE status = 'pending' AND created_at < ?",
-  ),
+  selectOverduePending: database.prepare("SELECT * FROM egress_requests WHERE status = 'pending' AND created_at < ?"),
   deleteOld: database.prepare("DELETE FROM egress_requests WHERE status <> 'pending' AND decided_at < ?"),
 }
 
@@ -84,7 +82,9 @@ function setStatus(request: EgressRequest, status: EgressRequestStatus): void {
 }
 
 function expireStale(): void {
-  statements.expirePending.run(new Date().toISOString(), ago(REQUEST_LIFETIME_MILLISECONDS))
+  for (const row of statements.selectOverduePending.all(ago(REQUEST_LIFETIME_MILLISECONDS)) as Row[]) {
+    setStatus(toRequest(row), "expired")
+  }
   statements.deleteOld.run(ago(RETENTION_MILLISECONDS))
 }
 
@@ -131,7 +131,17 @@ export async function submitRequest(workspace: string, host: string, reason: str
       return selectById(existing.id) ?? existing
     }
     if (existing?.status === "stalled") return existing
-    return { id: crypto.randomUUID(), workspace, host, reason, status: "allowed", createdAt: now, decidedAt: now }
+    const allowed: EgressRequest = {
+      id: crypto.randomUUID(),
+      workspace,
+      host,
+      reason,
+      status: "allowed",
+      createdAt: now,
+      decidedAt: now,
+    }
+    statements.insert.run(allowed.id, workspace, host, reason, allowed.status, now, now)
+    return allowed
   }
 
   if (existing?.status === "pending") return existing
@@ -153,17 +163,22 @@ export async function submitRequest(workspace: string, host: string, reason: str
   return request
 }
 
-export async function decide(id: string, decision: "allow" | "deny"): Promise<EgressRequest> {
+export async function decide(id: string, decision: "allow" | "deny" | "retry"): Promise<EgressRequest> {
   expireStale()
   const request = selectById(id)
   if (!request) throw new Error("unknown request")
-  if (request.status !== "pending") throw new Error("already decided")
 
-  if (decision === "deny") {
+  if (decision === "retry" && request.status === "stalled") {
+    setStatus(request, "approved")
+    void confirmThroughProxy(request.host)
+  } else if (decision === "deny" && request.status === "pending") {
     setStatus(request, "denied")
-  } else {
+  } else if (decision === "allow" && (request.status === "pending" || request.status === "denied")) {
     await allowHost(request.host)
+    if (request.status === "denied") setStatus(request, "approved")
     markHostAllowed(request.host)
+  } else {
+    throw new Error("already decided")
   }
   return selectById(id) ?? request
 }
@@ -193,3 +208,4 @@ export function listRequests(): EgressRequest[] {
 }
 
 for (const { host } of statements.selectApprovedHosts.all() as { host: string }[]) void confirmThroughProxy(host)
+setInterval(expireStale, 60_000).unref()

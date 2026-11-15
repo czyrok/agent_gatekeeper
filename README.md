@@ -23,6 +23,9 @@ proxy lets the host through), `stalled` (still refused 3 min after approval),
 `denied` or `expired` (unanswered for an hour). A denial blocks the same host
 for that workspace for an hour.
 
+The page lists requests for 24 h after their decision, denied and expired ones
+included: a denied request can still be allowed, and a stalled one retried.
+
 The caller is the running pod whose IP is the TCP peer, read in
 `WORKSPACES_NAMESPACE`; its `coder.workspace_owner` and `coder.workspace_name`
 labels name the workspace. Any other caller gets `403` with the address the

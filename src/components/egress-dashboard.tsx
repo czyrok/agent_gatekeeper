@@ -9,7 +9,7 @@ import type { EgressRequest } from "@/lib/egress-requests"
 import type { BlockedHost } from "@/lib/tinyproxy-log"
 
 const REFRESH_MILLISECONDS = 15_000
-const LISTED_REQUEST_STATUSES: EgressRequest["status"][] = ["pending", "approved", "stalled"]
+const LISTED_REQUEST_STATUSES: EgressRequest["status"][] = ["pending", "approved", "stalled", "denied", "expired"]
 
 const relativeTime = new Intl.RelativeTimeFormat("en", { numeric: "auto" })
 
@@ -35,11 +35,30 @@ function RequestActions({
 }: {
   request: EgressRequest
   pending: string | null
-  onDecide: (id: string, decision: "allow" | "deny") => void
+  onDecide: (id: string, decision: "allow" | "deny" | "retry") => void
   fullWidth?: boolean
 }) {
   if (request.status === "approved") return <Badge>waiting for proxy</Badge>
-  if (request.status === "stalled") return <Badge variant="neutral">proxy did not reload</Badge>
+  if (request.status === "expired") return <Badge variant="neutral">expired</Badge>
+  if (request.status === "stalled" || request.status === "denied") {
+    const [label, decision, action] =
+      request.status === "stalled"
+        ? (["proxy did not reload", "retry", "Retry"] as const)
+        : (["denied", "allow", "Allow"] as const)
+    return (
+      <div className={fullWidth ? "flex items-center gap-2" : "flex items-center justify-end gap-2"}>
+        <Badge variant="neutral">{label}</Badge>
+        <Button
+          className={fullWidth ? "flex-1" : undefined}
+          size={fullWidth ? "default" : "sm"}
+          disabled={pending === request.id}
+          onClick={() => onDecide(request.id, decision)}
+        >
+          {action}
+        </Button>
+      </div>
+    )
+  }
   return (
     <div className={fullWidth ? "flex gap-2" : "flex justify-end gap-2"}>
       <Button
@@ -106,7 +125,7 @@ export function EgressDashboard() {
     visible?.scrollIntoView({ block: "center" })
   }, [focusedRequest, requests])
 
-  async function decide(id: string, decision: "allow" | "deny") {
+  async function decide(id: string, decision: "allow" | "deny" | "retry") {
     setPending(id)
     try {
       await getJson<EgressRequest>("/api/requests/decision", {

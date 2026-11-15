@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises"
 
 const API = "https://kubernetes.default.svc"
+const REQUEST_TIMEOUT_MILLISECONDS = 10_000
 const TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 
 export type ConfigMap = {
@@ -14,6 +15,7 @@ async function request(path: string, init: RequestInit = {}) {
   const token = (await readFile(TOKEN_PATH, "utf8")).trim()
   const response = await fetch(`${API}${path}`, {
     ...init,
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MILLISECONDS),
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
