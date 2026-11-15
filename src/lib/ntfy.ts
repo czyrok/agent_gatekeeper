@@ -33,7 +33,7 @@ export function notifyRequest(request: EgressRequest): Promise<void> {
 export function notifyStalled(host: string): Promise<void> {
   return publish({
     title: `Proxy did not reload: ${host}`,
-    message: `${host} is in the allowlist but egress-proxy still refuses it after 3 minutes. Check kubectl -n coder logs deploy/egress-proxy.`,
+    message: `${host} is in the allowlist but egress-proxy still refuses it after 3 minutes. Check kubectl -n coder-egress logs deploy/egress-proxy.`,
     tags: ["warning"],
     click: env("PUBLIC_URL"),
   })

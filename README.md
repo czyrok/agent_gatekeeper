@@ -65,7 +65,7 @@ Deployment pulls that tag with `Always`, so a new image only lands on restart.
 
 | Variable | Value |
 | --- | --- |
-| `PROXY_NAMESPACE` | Namespace of the egress proxy and its allowlist |
+| `PROXY_NAMESPACE` | Namespace of the egress proxy and its allowlist, `coder-egress` |
 | `PROXY_POD_SELECTOR` | Label selector of the proxy pods, `app=egress-proxy` |
 | `ALLOWLIST_CONFIG_MAP` | Allowlist ConfigMap, `egress-allowlist` |
 | `ALLOWLIST_KEY` | Its data key, `proxy-allowlist` |
@@ -80,7 +80,9 @@ Deployment pulls that tag with `Always`, so a new image only lands on restart.
 | `NTFY_TOKEN` | ntfy token allowed to publish there |
 | `NOTIFICATION_EMAIL` | Address ntfy also emails; empty sends none |
 
-The Terraform module in `.terraform-module/` sets all of them.
+The Terraform module in `.terraform-module/` sets all of them. Its
+ServiceAccount's Role on pods, pod logs and the allowlist lives in
+`proxy_namespace_name`, not in the gatekeeper's own namespace.
 
 ## Theme
 

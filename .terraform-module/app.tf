@@ -17,13 +17,13 @@ resource "kubernetes_service_account_v1" "agent_gatekeeper" {
 resource "kubernetes_role_v1" "agent_gatekeeper" {
   metadata {
     name      = local.name
-    namespace = var.namespace_name
+    namespace = var.proxy_namespace_name
   }
 
   rule {
     api_groups = [""]
     resources  = ["pods"]
-    verbs      = ["get", "list"]
+    verbs      = ["list"]
   }
 
   rule {
@@ -45,7 +45,7 @@ resource "kubernetes_role_v1" "agent_gatekeeper" {
 resource "kubernetes_role_binding_v1" "agent_gatekeeper" {
   metadata {
     name      = local.name
-    namespace = var.namespace_name
+    namespace = var.proxy_namespace_name
   }
 
   role_ref {
@@ -195,7 +195,7 @@ resource "kubernetes_deployment_v1" "agent_gatekeeper" {
 
           env {
             name  = "PROXY_NAMESPACE"
-            value = var.namespace_name
+            value = var.proxy_namespace_name
           }
 
           env {

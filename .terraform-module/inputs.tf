@@ -1,6 +1,6 @@
 variable "namespace_name" {
   type        = string
-  description = "Namespace where Agent Gatekeeper runs, the same as the egress proxy's"
+  description = "Namespace where Agent Gatekeeper runs"
 }
 
 variable "local_docker_registry_host" {
@@ -21,6 +21,11 @@ variable "internal_ingress_annotations" {
 variable "internal_ingress_class_name" {
   type        = string
   description = "Ingress class of the internal Traefik"
+}
+
+variable "proxy_namespace_name" {
+  type        = string
+  description = "Namespace of the egress proxy and its allowlist ConfigMap; the gatekeeper's Role lives there"
 }
 
 variable "proxy_pod_selector" {
