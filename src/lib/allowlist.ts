@@ -15,10 +15,28 @@ export function entryForHost(host: string): string {
   return `^${host.toLowerCase().replaceAll(".", "\\.")}$`
 }
 
+const POSIX_CLASSES: Record<string, string> = {
+  alnum: "a-zA-Z0-9",
+  alpha: "a-zA-Z",
+  digit: "0-9",
+  lower: "a-z",
+  upper: "A-Z",
+  space: "\\s",
+  xdigit: "0-9A-Fa-f",
+  punct: "!-\\/:-@\\[-`{-~",
+}
+
+function toJsRegExp(entry: string): RegExp {
+  return new RegExp(
+    entry.replace(/\[:(\w+):\]/g, (match, name: string) => POSIX_CLASSES[name] ?? match),
+    "i",
+  )
+}
+
 export function isAllowed(entries: string[], host: string): boolean {
   return entries.some((entry) => {
     try {
-      return new RegExp(entry).test(host)
+      return toJsRegExp(entry).test(host)
     } catch {
       return false
     }
