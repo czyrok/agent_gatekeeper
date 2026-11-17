@@ -1,0 +1,268 @@
+import { useEffect, useRef, useState, type SubmitEvent } from "react"
+import { allowHost, decideEgressRequest, startDashboardPolling } from "@/client/data-services/egress-dashboard-data-service"
+import {
+  selectAllowlist,
+  selectBlockedHosts,
+  selectError,
+  selectListedRequests,
+  selectPending,
+  selectRequests,
+} from "@/client/selectors/dashboard-selectors"
+import { useDashboardState } from "@/client/state/dashboard-state"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import type { EgressRequest } from "@/shared/egress-request"
+
+const relativeTime = new Intl.RelativeTimeFormat("en", { numeric: "auto" })
+
+function timeAgo(iso: string): string {
+  const seconds = Math.round((new Date(iso).getTime() - Date.now()) / 1000)
+  if (seconds > -60) return relativeTime.format(seconds, "second")
+  if (seconds > -3600) return relativeTime.format(Math.round(seconds / 60), "minute")
+  return relativeTime.format(Math.round(seconds / 3600), "hour")
+}
+
+function RequestActions({ request, fullWidth = false }: { request: EgressRequest; fullWidth?: boolean }) {
+  const pending = useDashboardState(selectPending)
+  if (request.status === "approved") return <Badge>waiting for proxy</Badge>
+  if (request.status === "expired") return <Badge variant="neutral">expired</Badge>
+  if (request.status === "stalled" || request.status === "denied") {
+    const [label, decision, action] =
+      request.status === "stalled"
+        ? (["proxy did not reload", "retry", "Retry"] as const)
+        : (["denied", "allow", "Allow"] as const)
+    return (
+      <div className={fullWidth ? "flex items-center gap-2" : "flex items-center justify-end gap-2"}>
+        <Badge variant="neutral">{label}</Badge>
+        <Button
+          className={fullWidth ? "flex-1" : undefined}
+          size={fullWidth ? "default" : "sm"}
+          disabled={pending === request.id}
+          onClick={() => decideEgressRequest(request.id, decision)}
+        >
+          {action}
+        </Button>
+      </div>
+    )
+  }
+  return (
+    <div className={fullWidth ? "flex gap-2" : "flex justify-end gap-2"}>
+      <Button
+        className={fullWidth ? "flex-1" : undefined}
+        size={fullWidth ? "default" : "sm"}
+        disabled={pending === request.id}
+        onClick={() => decideEgressRequest(request.id, "allow")}
+      >
+        Allow
+      </Button>
+      <Button
+        className={fullWidth ? "flex-1" : undefined}
+        size={fullWidth ? "default" : "sm"}
+        variant="neutral"
+        disabled={pending === request.id}
+        onClick={() => decideEgressRequest(request.id, "deny")}
+      >
+        Deny
+      </Button>
+    </div>
+  )
+}
+
+export function EgressDashboard() {
+  const requests = useDashboardState(selectRequests)
+  const listedRequests = useDashboardState(selectListedRequests)
+  const blocked = useDashboardState(selectBlockedHosts)
+  const allowlist = useDashboardState(selectAllowlist)
+  const pending = useDashboardState(selectPending)
+  const error = useDashboardState(selectError)
+  const [focusedRequest] = useState(() =>
+    typeof location === "undefined" ? null : new URLSearchParams(location.search).get("request"),
+  )
+  const scrolledToFocus = useRef(false)
+  const [manualHost, setManualHost] = useState("")
+
+  useEffect(() => startDashboardPolling(), [])
+
+  useEffect(() => {
+    if (scrolledToFocus.current || !focusedRequest || requests.length === 0) return
+    scrolledToFocus.current = true
+    const visible = [...document.querySelectorAll<HTMLElement>(`[data-request="${CSS.escape(focusedRequest)}"]`)].find(
+      (element) => element.offsetParent !== null,
+    )
+    visible?.scrollIntoView({ block: "center" })
+  }, [focusedRequest, requests])
+
+  const focusClass = (id: string) => (id === focusedRequest ? "ring-4 ring-main" : "")
+
+  async function allowManualHost(event: SubmitEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (await allowHost(manualHost)) setManualHost("")
+  }
+
+  return (
+    <div className="flex flex-col gap-8">
+      {error && (
+        <Alert variant="destructive">
+          <AlertTitle>Request failed</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Agent requests</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {listedRequests.length === 0 ? (
+            <Alert>
+              <AlertTitle>No pending requests</AlertTitle>
+            </Alert>
+          ) : (
+            <>
+              <ul className="flex flex-col gap-4 sm:hidden">
+                {listedRequests.map((request) => (
+                  <li
+                    key={request.id}
+                    data-request={request.id}
+                    className={`flex flex-col gap-3 rounded-base border-2 border-border bg-secondary-background p-4 ${focusClass(request.id)}`}
+                  >
+                    <span className="font-mono break-all">{request.host}</span>
+                    <span className="text-sm">{request.reason}</span>
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <span className="font-mono break-all">{request.workspace}</span>
+                      <span>{timeAgo(request.createdAt)}</span>
+                    </div>
+                    <RequestActions request={request} fullWidth />
+                  </li>
+                ))}
+              </ul>
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Host</TableHead>
+                      <TableHead>Workspace</TableHead>
+                      <TableHead>Reason</TableHead>
+                      <TableHead>Asked</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {listedRequests.map((request) => (
+                      <TableRow key={request.id} data-request={request.id} className={focusClass(request.id)}>
+                        <TableCell className="font-mono">{request.host}</TableCell>
+                        <TableCell className="font-mono">{request.workspace}</TableCell>
+                        <TableCell className="whitespace-normal">{request.reason}</TableCell>
+                        <TableCell>{timeAgo(request.createdAt)}</TableCell>
+                        <TableCell className="text-right">
+                          <RequestActions request={request} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Refused hosts</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {blocked.length === 0 ? (
+            <Alert>
+              <AlertTitle>Nothing refused in the last 24 h</AlertTitle>
+            </Alert>
+          ) : (
+            <>
+              <ul className="flex flex-col gap-4 sm:hidden">
+                {blocked.map(({ host, count, lastSeen }) => (
+                  <li
+                    key={host}
+                    className="flex flex-col gap-3 rounded-base border-2 border-border bg-secondary-background p-4"
+                  >
+                    <span className="font-mono break-all">{host}</span>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Badge>{count}</Badge>
+                      <span>{timeAgo(lastSeen)}</span>
+                    </div>
+                    <Button className="w-full" disabled={pending === host} onClick={() => allowHost(host)}>
+                      Allow
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+              <div className="hidden sm:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Host</TableHead>
+                      <TableHead>Refusals</TableHead>
+                      <TableHead>Last seen</TableHead>
+                      <TableHead />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {blocked.map(({ host, count, lastSeen }) => (
+                      <TableRow key={host}>
+                        <TableCell className="font-mono">{host}</TableCell>
+                        <TableCell>
+                          <Badge>{count}</Badge>
+                        </TableCell>
+                        <TableCell>{timeAgo(lastSeen)}</TableCell>
+                        <TableCell className="text-right">
+                          <Button size="sm" disabled={pending === host} onClick={() => allowHost(host)}>
+                            Allow
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Allowlist</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <form className="flex flex-col gap-4 sm:flex-row" onSubmit={allowManualHost}>
+            <Input
+              placeholder="pypi.org"
+              value={manualHost}
+              onChange={(event) => setManualHost(event.target.value)}
+            />
+            <Button type="submit" disabled={manualHost === "" || pending === manualHost}>
+              Allow
+            </Button>
+          </form>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Entry</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {allowlist.map((entry) => (
+                <TableRow key={entry}>
+                  <TableCell className="font-mono">{entry}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
