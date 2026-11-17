@@ -54,7 +54,16 @@ outside the cluster only the UI renders and every list reports an error.
 
 ## Build and push
 
-From the lyre devShell, with the local registry proxy running:
+A push to `main` runs `.github/workflows/image-to-registry.yaml`, which
+pushes `lyre/agent_gatekeeper:latest-amd64` and `latest-arm64` to the S3-backed
+registry; `gh workflow run image-to-registry.yaml` runs it by hand. It needs
+an environment `release` holding the secrets
+`DOCKER_IMAGE_REGISTRY_BUCKET_REGION`, `DOCKER_IMAGE_REGISTRY_BUCKET_NAME`,
+`DOCKER_IMAGE_REGISTRY_BUCKET_ACCESS_KEY_ID` and
+`DOCKER_IMAGE_REGISTRY_BUCKET_ACCESS_KEY_SECRET`, the same values as
+`lyre_web`'s. Then restart the Deployment as below.
+
+By hand, from the lyre devShell, with the local registry proxy running:
 
 ```bash
 cargo make registry-image
