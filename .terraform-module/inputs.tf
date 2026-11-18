@@ -96,12 +96,6 @@ variable "notification_email" {
   description = "Address ntfy also emails each notification to. Empty sends no email"
 }
 
-variable "control_plane_url" {
-  type        = string
-  default     = ""
-  description = "Internal URL of the agent control plane; empty leaves ask_operator answering unlinked"
-}
-
 variable "storage_size" {
   type        = string
   default     = "256Mi"
