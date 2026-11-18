@@ -1,4 +1,5 @@
 import type { EgressRequest } from "@/shared/egress-request"
+import type { OperatorQuestion } from "@/shared/operator-question"
 import { env } from "@/server/infrastructure/env"
 
 type Message = {
@@ -37,5 +38,15 @@ export function notifyStalled(host: string): Promise<void> {
     message: `${host} is in the allowlist but egress-proxy still refuses it after 3 minutes. Check kubectl -n coder-egress logs deploy/egress-proxy.`,
     tags: ["warning"],
     click: env("PUBLIC_URL"),
+  })
+}
+
+export function notifyQuestion(question: OperatorQuestion): Promise<void> {
+  return publish({
+    title: `Question on ${question.itemKey}`,
+    message: `${question.itemName}\n\n${question.question}\n${question.itemUrl}`,
+    tags: ["question"],
+    click: question.itemUrl,
+    actions: [{ action: "view", label: "Answer", url: question.itemUrl }],
   })
 }
