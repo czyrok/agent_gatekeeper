@@ -9,3 +9,7 @@ output "homepage_cards" {
     { name = "Gatekeeper", href = var.public_url, icon = "mdi-shield-check", description = "Agent egress approvals", public = false },
   ]
 }
+
+output "pod_labels" {
+  value = { app = local.name }
+}

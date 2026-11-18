@@ -264,6 +264,11 @@ resource "kubernetes_deployment_v1" "agent_gatekeeper" {
           }
 
           env {
+            name  = "CONTROL_PLANE_URL"
+            value = var.control_plane_url
+          }
+
+          env {
             name  = "NODE_EXTRA_CA_CERTS"
             value = "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
           }
