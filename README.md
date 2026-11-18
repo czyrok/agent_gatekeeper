@@ -12,33 +12,16 @@ the proxy refused that is not yet allowed, and appends `^host\.tld$` to the
 Workspaces reach an MCP endpoint at
 `http://agent-gatekeeper-requests.coder.svc.cluster.local/mcp` (the requests
 Service, port 4322; the page's port 4321 stays out of their reach). It offers
-four tools:
+two tools:
 
 - `request_egress { host, reason }` stores the request, publishes it to ntfy
   with a link to `/?request=<id>`, and waits up to 25 s for a decision.
 - `egress_status { host }` waits up to 25 s more on the same request.
-- `ask_operator { question }` hands the question to the agent control plane
-  (`CONTROL_PLANE_URL`), which comments it on the workspace's Plane work item
-  and moves the item to Waiting; it then publishes it to ntfy with a link to
-  the item and waits up to 25 s for the answer.
-- `answer_status {}` waits up to 25 s more on the workspace's last question.
 
 Each answers `pending`, `approved` (proxy not reloaded yet), `allowed` (the
 proxy lets the host through), `stalled` (still refused 3 min after approval),
 `denied` or `expired` (unanswered for an hour). A denial blocks the same host
 for that workspace for an hour.
-
-A workspace holds one pending question at a time: asking again while one is
-pending waits on it instead. Questions never expire. Plane is reached only
-through the control plane, which answers a question with the operator's first
-reply comment; the gatekeeper polls it every 10 s. A workspace not started
-from a work item, or an empty `CONTROL_PLANE_URL`, gets told to ask in its
-session instead.
-
-The answer is delivered into the agent's session by the workspace itself:
-`GET /answers/next` on the requests port returns the oldest undelivered
-answer as text, with `X-Answer-Id` and `X-Item-Key`, or `204`; it serves the
-same answer until `POST /answers/next` with that id as body acknowledges it.
 
 The page lists requests for 24 h after their decision, denied and expired ones
 included: a denied request can still be allowed, and a stalled one retried.
@@ -48,8 +31,7 @@ The caller is the running pod whose IP is the TCP peer, read in
 labels name the workspace. Any other caller gets `403` with the address the
 gatekeeper saw, also logged; so does any request carrying `X-Forwarded-For`.
 
-Requests and questions live in SQLite at `DATABASE_PATH` and survive a
-restart.
+Requests live in SQLite at `DATABASE_PATH` and survive a restart.
 
 ## Develop
 
@@ -62,8 +44,8 @@ DATABASE_PATH=./gatekeeper.db bun run dev
 ```
 
 `DATABASE_PATH` defaults to `gatekeeper.db` in the working directory.
-`bun run start` runs `server.mjs`: the app on `PORT`, only `/mcp` and
-`/answers/next` on `REQUESTS_PORT`.
+`bun run start` runs `server.mjs`: the app on `PORT`, only `/mcp` on
+`REQUESTS_PORT`.
 
 The API calls the Kubernetes API with the pod's ServiceAccount token, so
 outside the cluster only the UI renders and every list reports an error.
@@ -101,16 +83,15 @@ Deployment pulls that tag with `Always`, so a new image only lands on restart.
 | `ALLOWLIST_CONFIG_MAP` | Allowlist ConfigMap, `egress-allowlist` |
 | `ALLOWLIST_KEY` | Its data key, `proxy-allowlist` |
 | `NODE_EXTRA_CA_CERTS` | The ServiceAccount `ca.crt`, to trust the API server |
-| `WORKSPACES_NAMESPACE` | Namespace of the workspace pods allowed on 4322 |
-| `DATABASE_PATH` | SQLite file of the requests and questions, on the data volume |
-| `REQUESTS_PORT` | Port serving only `/mcp` and `/answers/next`, `4322` |
+| `WORKSPACES_NAMESPACE` | Namespace of the workspace pods allowed on `/mcp` |
+| `DATABASE_PATH` | SQLite file of the requests, on the data volume |
+| `REQUESTS_PORT` | Port serving only `/mcp`, `4322` |
 | `PROXY_URL` | Egress proxy URL, probed after an approval |
 | `PUBLIC_URL` | Page URL used in notification links |
 | `NTFY_URL` | ntfy server notifications are published to |
 | `NTFY_TOPIC` | Its topic, `egress-requests` |
 | `NTFY_TOKEN` | ntfy token allowed to publish there |
 | `NOTIFICATION_EMAIL` | Address ntfy also emails; empty sends none |
-| `CONTROL_PLANE_URL` | Internal API of the agent control plane; empty disables `ask_operator` |
 
 The Terraform module in `.terraform-module/` sets all of them. Its
 ServiceAccount's Role on pods, pod logs and the allowlist lives in

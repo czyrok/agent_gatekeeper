@@ -1,7 +1,7 @@
 import { createServer } from "node:http"
 import { handler } from "./dist/server/entry.mjs"
 
-const REQUEST_PATHS = new Set(["/mcp", "/answers/next"])
+const REQUEST_PATHS = new Set(["/mcp"])
 
 createServer((request, response) => {
   if (REQUEST_PATHS.has(new URL(request.url ?? "/", "http://localhost").pathname)) return handler(request, response)
