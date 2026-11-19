@@ -61,17 +61,17 @@ an environment `release` holding the secrets
 `DOCKER_IMAGE_REGISTRY_BUCKET_REGION`, `DOCKER_IMAGE_REGISTRY_BUCKET_NAME`,
 `DOCKER_IMAGE_REGISTRY_BUCKET_ACCESS_KEY_ID` and
 `DOCKER_IMAGE_REGISTRY_BUCKET_ACCESS_KEY_SECRET`, the same values as
-`lyre_web`'s. Then restart the Deployment as below.
+`lyre_web`'s. Keel then rolls the Deployment, as below.
 
 By hand, from the lyre devShell, with the local registry proxy running:
 
 ```bash
 cargo make registry-image
-kubectl -n coder rollout restart deployment agent-gatekeeper
 ```
 
-This pushes `localhost:60471/lyre/agent_gatekeeper:latest-amd64`. The
-Deployment pulls that tag with `Always`, so a new image only lands on restart.
+This pushes `localhost:60471/lyre/agent_gatekeeper:latest-amd64`. Keel polls
+that tag every minute and rolls the Deployment when its digest changes;
+`kubectl -n coder rollout restart deployment agent-gatekeeper` skips the wait.
 `cargo make local-image` builds the same image into the local Docker store.
 
 ## Environment
