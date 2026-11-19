@@ -33,6 +33,12 @@ variable "ingress_pod_labels" {
   description = "Labels of the ingress controller pods allowed to reach the page"
 }
 
+variable "health_check_namespace_name" {
+  type        = string
+  default     = ""
+  description = "Namespace whose pods may probe the health endpoint. Empty admits none"
+}
+
 variable "proxy_namespace_name" {
   type        = string
   description = "Namespace of the egress proxy and its allowlist ConfigMap; the gatekeeper's Role lives there"
