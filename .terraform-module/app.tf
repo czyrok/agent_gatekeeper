@@ -139,6 +139,13 @@ resource "kubernetes_deployment_v1" "agent_gatekeeper" {
     labels = {
       app = local.name
     }
+
+    annotations = {
+      "keel.sh/policy"       = "force"
+      "keel.sh/trigger"      = "poll"
+      "keel.sh/match-tag"    = "true"
+      "keel.sh/pollSchedule" = "@every 1m"
+    }
   }
 
   spec {
@@ -310,6 +317,12 @@ resource "kubernetes_deployment_v1" "agent_gatekeeper" {
         }
       }
     }
+  }
+
+  lifecycle {
+    ignore_changes = [
+      spec[0].template[0].metadata[0].annotations["keel.sh/update-time"],
+    ]
   }
 
   depends_on = [
