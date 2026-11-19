@@ -97,7 +97,8 @@ The Terraform module in `.terraform-module/` sets all of them. Its
 ServiceAccount's Role on pods, pod logs and the allowlist lives in
 `proxy_namespace_name`, not in the gatekeeper's own namespace. A NetworkPolicy
 admits only the ingress controller pods (`ingress_namespace_name`,
-`ingress_pod_labels`) on 4321 and only workspace pods on 4322.
+`ingress_pod_labels`) and the health checker's namespace
+(`health_check_namespace_name`) on 4321, and only workspace pods on 4322.
 The agent control plane's module adds its own policy admitting its pods on
 4321, to read `/api/requests` for Homepage's Waiting card.
 
