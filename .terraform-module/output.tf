@@ -6,6 +6,6 @@ output "health_checks" {
 
 output "homepage_cards" {
   value = [
-    { name = "Gatekeeper", href = var.public_url, icon = "mdi-shield-check", description = "Agent egress approvals", public = false },
+    { name = "Gatekeeper", href = var.public_url, icon = "/icons/link-gatekeeper.png", description = "Agent egress approvals", public = false },
   ]
 }
